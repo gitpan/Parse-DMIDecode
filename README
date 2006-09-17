@@ -1,0 +1,61 @@
+NAME
+    Parse::DMIDecode - Interface to SMBIOS under Linux using dmidecode
+
+SYNOPSIS
+     use strict;
+     use Parse::DMIDecode ();
+     
+ my $dmi = new Parse::DMIDecode;
+     $dmi->probe;
+     
+ printf("System: %s, %s",
+             $dmi->keyword("system-manufacturer"),
+             $dmi->keyword("system-product-name"),
+         );
+
+DESCRIPTION
+    This module provides an OO interface to SMBIOS information through the
+    *dmidecode* command which is known to work under a number of Linux, BSD
+    and BeOS variants.
+
+METHODS
+  new
+     my $dmi = Parse::DMIDecode->new(dmidecode => "/usr/sbin/dmidecode");
+
+  probe
+     $dmi->probe;
+
+  parse
+     my $raw = `dmidecode`;
+     $dmi->parse($raw);
+
+  keyword
+     my $ = $dmi->keyword("system-serial-number");
+
+SEE ALSO
+    examples/*.pl, <http://www.nongnu.org/dmidecode/>,
+    <http://linux.dell.com/libsmbios/>,
+    <http://sourceforge.net/projects/x86info/>,
+    <http://www.dmtf.org/standards/smbios>, biosdecode(8), dmidecode(8),
+    vpddecode(8)
+
+VERSION
+    $Id: DMIDecode.pm 772 2006-09-17 20:27:14Z nicolaw $
+
+AUTHOR
+    Nicola Worthington <nicolaw@cpan.org>
+
+    <http://perlgirl.org.uk>
+
+    If you like this software, why not show your appreciation by sending the
+    author something nice from her Amazon wishlist? (
+    http://www.amazon.co.uk/gp/registry/1VZXC59ESWYK0?sort=priority )
+
+COPYRIGHT
+    Copyright 2006 Nicola Worthington.
+
+    This software is licensed under The Apache Software License, Version
+    2.0.
+
+    <http://www.apache.org/licenses/LICENSE-2.0>
+
