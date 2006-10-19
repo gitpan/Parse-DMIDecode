@@ -5,12 +5,15 @@ SYNOPSIS
      use strict;
      use Parse::DMIDecode ();
      
- my $dmi = new Parse::DMIDecode;
-     $dmi->probe;
-     
+ my $decoder = new Parse::DMIDecode;
+     $decoder->probe; # Actively probe using dmidecode
+      
+ # Manually supply your own dmidecode output to be parsed
+     # $decoder->parse(qx(sudo /usr/sbin/dmidecode));
+      
  printf("System: %s, %s",
-             $dmi->keyword("system-manufacturer"),
-             $dmi->keyword("system-product-name"),
+             $decoder->keyword("system-manufacturer"),
+             $decoder->keyword("system-product-name"),
          );
 
 DESCRIPTION
@@ -18,19 +21,60 @@ DESCRIPTION
     *dmidecode* command which is known to work under a number of Linux, BSD
     and BeOS variants.
 
+    This module is still actively under development, is no not yet feature
+    complete and still needs to be fully documented. There is a possibility
+    accessor method names may change before the final release.
+
 METHODS
   new
-     my $dmi = Parse::DMIDecode->new(dmidecode => "/usr/sbin/dmidecode");
+     my $decoder = Parse::DMIDecode->new(dmidecode => "/usr/sbin/dmidecode");
 
   probe
-     $dmi->probe;
+     $decoder->probe;
 
   parse
-     my $raw = `dmidecode`;
-     $dmi->parse($raw);
+     my $raw = qx(sudo /usr/sbin/dmidecode);
+     $decoder->prase($raw);
 
   keyword
-     my $ = $dmi->keyword("system-serial-number");
+     my $serial_number = $decoder->keyword("system-serial-number");
+
+  keywords
+     my @keywords = $decoder->keywords;
+     my @bios_keywords = $decoder->keywords("bios");
+     
+ for my $keyword (@bios_keywords) {
+         printf("%s => %s\n",
+                 $keyword,
+                 $decoder->keyword($keyword)
+             );
+     }
+
+  handle_addresses
+     my @addresses = $decoder->handle_addresses;
+
+  get_handles
+     use Parse::DMIDecode::Constants qw(@TYPES);
+     
+ for my $handle ($decoder->get_handles( group => "memory" )) {
+         printf(">> Found handle at %s (%s):\n%s\n",
+                 $handle->address,
+                 $TYPES[$handle->dmitype],
+                 $handle->raw
+             );
+     }
+
+  smbios_version
+     my $smbios_version = $decoder->smbios_version;
+
+  dmidecode_version
+     my $dmidecode_version = $decoder->dmidecode_version;
+
+  table_location
+     my $memory_address = $decoder->table_location;
+
+  structures
+     my $total_structures = $decoder->structures;
 
 SEE ALSO
     examples/*.pl, <http://www.nongnu.org/dmidecode/>,
@@ -40,7 +84,7 @@ SEE ALSO
     vpddecode(8)
 
 VERSION
-    $Id: DMIDecode.pm 772 2006-09-17 20:27:14Z nicolaw $
+    $Id: DMIDecode.pm 789 2006-10-19 08:04:35Z nicolaw $
 
 AUTHOR
     Nicola Worthington <nicolaw@cpan.org>

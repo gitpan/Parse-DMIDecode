@@ -1,8 +1,11 @@
 Build.PL
 Changes
 examples/synopsys.pl
+examples/test.pl
 INSTALL
 lib/Parse/DMIDecode.pm
+lib/Parse/DMIDecode/Constants.pm
+lib/Parse/DMIDecode/Handle.pm
 LICENSE
 Makefile.PL
 MANIFEST			This list of files
@@ -13,8 +16,10 @@ t/10pod.t
 t/11pod_coverage.t
 t/20compile.t
 t/30synopsis.t
-t/dmidecode_aragorn.txt
-t/dmidecode_arwen.txt
-t/dmidecode_eowyn.txt
-t/dmidecode_epimetheus.txt
+t/40regression_test.t
+t/dmidecode_example1.txt
+t/dmidecode_example2.txt
+t/dmidecode_example3.txt
+t/dmidecode_example4.txt
+t/dmidecode_example5.txt
 TODO

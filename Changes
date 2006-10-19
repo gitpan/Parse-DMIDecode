@@ -1,3 +1,18 @@
+Version 0.01 - 19th October 2006
+    + Pre-release.
+    + Created Parse::DMIDecode::Handle objects for each
+      handle structure.
+    + Encapsulated the internal data structure which is
+      quite fragile so that people cannot just grab items
+      out of it.
+    + Added accessor methods for header information.
+    + Added selection methods to return handle objects.
+    + Added a method to return a list of all known
+      keyword strings.
+    + Added unit tests.
+    + Added a whole bunch more since the first release
+      was mostly a placeholder.
+
 Version 0.00 - 17th September 2006
     + Initial developer pre-release to save the namespace
       and to discuss API prior to full release.

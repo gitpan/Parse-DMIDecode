@@ -1,6 +1,6 @@
 ---
 name: Parse-DMIDecode
-version: 0.00
+version: 0.01
 author:
   - Nicola Worthington <nicolaw@cpan.org>
 abstract: Interface to SMBIOS under Linux using dmidecode
@@ -18,5 +18,11 @@ build_requires:
 provides:
   Parse::DMIDecode:
     file: lib/Parse/DMIDecode.pm
-    version: 0.00
+    version: 0.01
+  Parse::DMIDecode::Constants:
+    file: lib/Parse/DMIDecode/Constants.pm
+    version: 0.01
+  Parse::DMIDecode::Handle:
+    file: lib/Parse/DMIDecode/Handle.pm
+    version: 0.01
 generated_by: Module::Build version 0.2611
