@@ -10,7 +10,7 @@ use Parse::DMIDecode qw();
 my $data;
 
 my $dmi;
-ok($dmi = Parse::DMIDecode->new(nowarnings => 1),'new');
+ok($dmi = Parse::DMIDecode->new(nowarnings => 0),'new');
 
 ok($dmi->parse(slurp('dmidecode_example1.txt')),'parse dmidecode_example1.txt');
 ok($dmi->keyword('bios-vendor') eq 'Dell Inc.','keyword bios-vendor');

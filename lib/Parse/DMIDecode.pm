@@ -1,6 +1,6 @@
 ############################################################
 #
-#   $Id: DMIDecode.pm 789 2006-10-19 08:04:35Z nicolaw $
+#   $Id: DMIDecode.pm 803 2006-10-22 11:36:22Z nicolaw $
 #   Parse::DMIDecode - Interface to SMBIOS under Linux using dmidecode
 #
 #   Copyright 2006 Nicola Worthington
@@ -26,10 +26,10 @@ use strict;
 use Scalar::Util qw(refaddr);
 use Parse::DMIDecode::Handle;
 use Parse::DMIDecode::Constants qw(@TYPES %GROUPS);
-use Carp qw(croak cluck confess carp);
+use Carp qw(croak cluck carp);
 use vars qw($VERSION $DEBUG);
 
-$VERSION = '0.01' || sprintf('%d', q$Revision: 789 $ =~ /(\d+)/g);
+$VERSION = '0.02' || sprintf('%d', q$Revision: 803 $ =~ /(\d+)/g);
 $DEBUG ||= $ENV{DEBUG} ? 1 : 0;
 
 my $objstore = {};
@@ -82,10 +82,12 @@ sub probe {
 	};
 	croak $@ if $@;
 
-	my ($cmd) = $stor->{dmidecode} =~ /^([\/\.\_\-a-zA-Z0-9 >]+)$/;
+	my ($cmd) = $stor->{dmidecode} =~ /^([\/\.\_\-a-zA-Z0-9 ]+)$/;
 	TRACE($cmd);
+	croak "dmidecode command '$cmd' does not exist; bum!" if !-f $cmd;
 
 	my $fh;
+	local %ENV = %ENV;
 	delete @ENV{qw(IFS CDPATH ENV BASH_ENV PATH)};
 	open($fh,'-|',$cmd) || croak "Unable to open file handle for command '$cmd': $!";
 	while (local $_ = <$fh>) {
@@ -154,8 +156,8 @@ sub parse {
 		) if $raw_handle_data;
 
 	carp sprintf("Only parsed %d structures when %d were expected",
-			@{$data{handles}}, $data{structures}
-		) if @{$data{handles}} != $data{structures};
+			scalar(@{$data{handles}}), $data{structures}
+		) if scalar(@{$data{handles}}) < $data{structures};
 
 	$stor->{parsed} = \%data;
 	DUMP('$stor->{parsed}',$stor->{parsed});
@@ -173,9 +175,11 @@ sub get_handles {
 	my %param = @_;
 	my $stor = $objstore->{refaddr($self)};
 	my @handles;
+	my $getall = !keys(%param);
 
 	for my $handle (@{$stor->{parsed}->{handles}}) {
-		if ((defined $param{address} && $handle->address eq $param{address}) ||
+		if ($getall ||
+			(defined $param{address} && $handle->address eq $param{address}) ||
 			(defined $param{dmitype} && $handle->dmitype == $param{dmitype}) ||
 			(defined $param{group} && defined $GROUPS{$param{group}} &&
 			 grep($_ == $handle->dmitype,@{$GROUPS{$param{group}}}))
@@ -278,8 +282,8 @@ sub DUMP {
 	return unless $DEBUG;
 	eval {
 		require Data::Dumper;
-		$Data::Dumper::Indent = 2;
-		$Data::Dumper::Terse = 1;
+		local $Data::Dumper::Indent = 2;
+		local $Data::Dumper::Terse = 1;
 		carp(shift().': '.Data::Dumper::Dumper(shift()));
 	}
 }
@@ -325,7 +329,10 @@ release.
 
 =head2 new
 
- my $decoder = Parse::DMIDecode->new(dmidecode => "/usr/sbin/dmidecode");
+ my $decoder = Parse::DMIDecode->new(
+                     dmidecode => "/usr/sbin/dmidecode"),
+                     nowarnings => 1
+                 );
 
 =head2 probe
 
@@ -360,6 +367,8 @@ release.
 
  use Parse::DMIDecode::Constants qw(@TYPES);
  
+ # Available groups to query: bios, system, baseboard,
+ #    chassis, processor, memory, cache, connector, slot
  for my $handle ($decoder->get_handles( group => "memory" )) {
      printf(">> Found handle at %s (%s):\n%s\n",
              $handle->address,
@@ -375,6 +384,10 @@ release.
 =head2 dmidecode_version
 
  my $dmidecode_version = $decoder->dmidecode_version;
+
+Returns the version number of the copy of I<dmidecode> that was used
+to create the source data that was parsed. This value may not be available
+when using older versions of I<dmidecode>.
 
 =head2 table_location
 
@@ -395,7 +408,7 @@ L<biosdecode(8)>, L<dmidecode(8)>, L<vpddecode(8)>
 
 =head1 VERSION
 
-$Id: DMIDecode.pm 789 2006-10-19 08:04:35Z nicolaw $
+$Id: DMIDecode.pm 803 2006-10-22 11:36:22Z nicolaw $
 
 =head1 AUTHOR
 

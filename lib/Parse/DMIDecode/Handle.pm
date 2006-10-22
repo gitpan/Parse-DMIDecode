@@ -1,7 +1,7 @@
 ############################################################
 #
-#   $Id: Handle.pm 789 2006-10-19 08:04:35Z nicolaw $
-#   Parse::DMIDecode::Handle - Handle object
+#   $Id: Handle.pm 807 2006-10-22 12:15:10Z nicolaw $
+#   Parse::DMIDecode::Handle - SMBIOS Structure Handle Object Class
 #
 #   Copyright 2006 Nicola Worthington
 #
@@ -25,10 +25,11 @@ package Parse::DMIDecode::Handle;
 use strict;
 use Parse::DMIDecode::Constants qw(@TYPES %GROUPS %TYPE2GROUP);
 use Scalar::Util qw(refaddr);
+#use Storable qw(dclone);
 use Carp qw(croak cluck confess carp);
 use vars qw($VERSION $DEBUG);
 
-$VERSION = '0.01' || sprintf('%d', q$Revision: 789 $ =~ /(\d+)/g);
+$VERSION = '0.02' || sprintf('%d', q$Revision: 807 $ =~ /(\d+)/g);
 $DEBUG ||= $ENV{DEBUG} ? 1 : 0;
 
 my $objstore = {};
@@ -41,13 +42,8 @@ my $objstore = {};
 sub new {
 	ref(my $class = shift) && croak 'Class name required';
 	croak 'Odd number of elements passed when even was expected' if @_ % 2;
-#	croak sprintf('%s elements passed when one was expected',
-#			(@_ > 1 ? 'Multiple' : 'No')) if @_ != 1;
 
-	my $self = bless \(my $dummy), $class;
-	$objstore->{refaddr($self)} = {@_};
-	my $stor = $objstore->{refaddr($self)};
-
+	my $stor = {@_};
 	my @validkeys = qw(raw nowarnings);
 	my $validkeys = join('|',@validkeys);
 	my @invalidkeys = grep(!/^$validkeys$/,keys %{$stor});
@@ -55,28 +51,65 @@ sub new {
 	cluck('Unrecognised parameters passed: '.join(', ',@invalidkeys))
 		if @invalidkeys && $^W;
 
-	if (defined $stor->{raw}) {
-		for (split(/\n/,$stor->{raw})) {
-			if (/^Handle ([0-9A-Fx]+)(?:, DMI type (\d+), (\d+) bytes?\.?)?\s*$/) {
-				$stor->{handle} = $1;
-				$stor->{dmitype} = $2 if defined $2;
-				$stor->{bytes} = $3 if defined $3;
-			} elsif (defined $stor->{handle} &&
-					/^\s*DMI type (\d+), (\d+) bytes?\.?\s*$/) {
-				$stor->{dmitype} = $1 if defined $1;
-				$stor->{bytes} = $2 if defined $2;
-			} else {
-				$stor->{raw_entries} = [] unless defined $stor->{raw_entries};
-				push @{$stor->{raw_entries}}, $_;
-			}
+	return unless defined defined $stor->{raw};
+	for (split(/\n/,$stor->{raw})) {
+		if (/^Handle ([0-9A-Fx]+)(?:, DMI type (\d+), (\d+) bytes?\.?)?\s*$/) {
+			$stor->{handle} = $1;
+			$stor->{dmitype} = $2 if defined $2;
+			$stor->{bytes} = $3 if defined $3;
+		} elsif (defined $stor->{handle} &&
+				/^\s*DMI type (\d+), (\d+) bytes?\.?\s*$/) {
+			$stor->{dmitype} = $1 if defined $1;
+			$stor->{bytes} = $2 if defined $2;
+		} else {
+			$stor->{raw_entries} = [] unless defined $stor->{raw_entries};
+			push @{$stor->{raw_entries}}, $_;
 		}
-		$stor->{keywords} = {};
-		_parse($stor) if $stor->{raw_entries};
 	}
 
-	DUMP('$self',$self);
-	DUMP('$stor',$stor);
-	return $self;
+	my ($data,$keywords) = _parse($stor)
+		if $stor->{raw_entries};
+
+	my @objects;
+	for my $name (keys(%{$data})) {
+		my $self = bless \(my $dummy), $class;
+		push @objects, $self;
+
+		$objstore->{refaddr($self)} = _deepcopy($stor);
+		my $stor = $objstore->{refaddr($self)};
+
+		$stor->{description} = substr($name,4);
+		$stor->{data} = $data->{$name} || {};
+		$stor->{keywords} = $keywords->{$name} || {};
+
+		DUMP('$self',$self);
+		DUMP('$stor',$stor);
+	}
+
+	DUMP('\@objects',\@objects);
+	return @objects;
+}
+
+
+sub _deepcopy{
+	my $this = shift;
+	if (!ref($this)) {
+		$this;
+	} elsif (ref($this) eq 'ARRAY') {
+		[ map _deepcopy($_), @{$this} ];
+	} elsif (ref($this) eq 'HASH'){
+		scalar { map { $_ => _deepcopy($this->{$_}) } keys %{$this} };
+	} else {
+		confess "What type is $_?";
+	}
+}
+
+
+sub parsed_structures {
+	my $self = shift;
+	croak 'Not called as a method by parent object'
+		unless ref $self && UNIVERSAL::isa($self, __PACKAGE__);
+	return _deepcopy($objstore->{refaddr($self)}->{data});
 }
 
 
@@ -103,6 +136,14 @@ sub raw {
 	croak 'Not called as a method by parent object'
 		unless ref $self && UNIVERSAL::isa($self, __PACKAGE__);
 	return $objstore->{refaddr($self)}->{raw};
+}
+
+
+sub description {
+	my $self = shift;
+	croak 'Not called as a method by parent object'
+		unless ref $self && UNIVERSAL::isa($self, __PACKAGE__);
+	return $objstore->{refaddr($self)}->{description};
 }
 
 
@@ -133,22 +174,44 @@ sub handle {
 
 
 sub _parse {
-	my $ref = shift;
-	return unless defined $ref->{raw_entries};
+	my $stor = shift;
+	return unless defined $stor->{raw_entries};
 
 	my $name_indent = 0;
 	my $key_indent  = 0;
 	my $name = '';
+	my $name_cnt = 0;
 	my $key = '';
+	my $legacy_dmidecode_binary_data = 0;
 
 	my @errors;
-	my %strct;
+	my %data;
+	my %keywords;
 
-	for (my $l = 0; $l < @{$ref->{raw_entries}}; $l++) {
-		local $_ = $ref->{raw_entries}->[$l];
+#	DUMP('$stor->{raw_entries}',$stor->{raw_entries});
+
+	for (my $l = 0; $l < @{$stor->{raw_entries}}; $l++) {
+		local $_ = $stor->{raw_entries}->[$l];
 		my ($indent) = $_ =~ /^(\s+)/;
 		$indent = '' unless defined $indent;
 		$indent = length($indent);
+
+		# Old version of dmidecode - we don't support this very well
+#Handle 0xD402
+#|   DMI type 212, 47 bytes.
+#70 00 71 00 03 40 59 6d d8 00 55 7f 80 d9 00 55 |   p.q..@Ym..U....U
+#7f 00 00 c0 5c 00 0a 03 c0 67 00 05 83 00 76 00 |   ....\....g....v.
+#00 84 00 77 00 00 ff ff 00 00 00                |   ...w.......
+		if ((!$name || $legacy_dmidecode_binary_data) && /^(([a-f0-9]{2} )+)\s*\t[[:print:]]{1,16}\s*$/) {
+			my $data = $1;
+			chop $data;
+			$name ||= sprintf('%03d|%s',++$name_cnt,'OEM-specific Type');
+			$key = 'Header and Data';
+			$legacy_dmidecode_binary_data = 1;
+			$data{$name}->{$key}->[1] = [] unless defined $data{$name}->{$key}->[1];
+			push @{$data{$name}->{$key}->[1]}, $data;
+			next;
+		}
 
 		$name_indent = $indent if $l == 0;
 		if ($l == 1) {
@@ -158,21 +221,21 @@ sub _parse {
 
 		# data
 		if (/^\s{$name_indent}(\S+.*?)\s*$/) {
-			$name = $1;
-			$strct{$name} = {};
+			$name = sprintf('%03d|%s',++$name_cnt,$1);
+			$data{$name} = {};
 			$key = '';
 
-		} elsif ($name && /^\s{$key_indent}(\S.*?)(?::|: (\S+.*?))?\s*$/) {
+		} elsif ($name && /^\s{$key_indent}(\S.*?)(?::|:\s+(\S+.*?))?\s*$/) {
 			$key = $1;
-			$strct{$name}->{$key}->[0] = $2;
-			$strct{$name}->{$key}->[1] = [] unless defined $strct{$name}->{$key}->[1];
-			$ref->{keywords}->{_keyword($ref,$key)} = $strct{$name}->{$key}->[0]
-				if defined $TYPE2GROUP{$ref->{dmitype}}
+			$data{$name}->{$key}->[0] = $2;
+			$data{$name}->{$key}->[1] = [] unless defined $data{$name}->{$key}->[1];
+			$keywords{$name}->{_keyword($stor,$key)} = $data{$name}->{$key}->[0]
+				if defined $TYPE2GROUP{$stor->{dmitype}}
 
 		} elsif ($name && $key && $indent > $key_indent && /^\s*(\S+.*?)\s*$/) {
-			push @{$strct{$name}->{$key}->[1]}, $1;
-			$ref->{keywords}->{_keyword($ref,$key)} = $strct{$name}->{$key}->[1]
-				if defined $TYPE2GROUP{$ref->{dmitype}};# && !defined $strct{$name}->{$key}->[0];
+			push @{$data{$name}->{$key}->[1]}, $1;
+			$keywords{$name}->{_keyword($stor,$key)} = $data{$name}->{$key}->[1]
+				if defined $TYPE2GROUP{$stor->{dmitype}};# && !defined $data{$name}->{$key}->[0];
 
 		# unknown
 		} else {
@@ -181,17 +244,18 @@ sub _parse {
 	}
 
 	sub _keyword {
-		my ($ref,$key) = @_;
+		my ($stor,$key) = @_;
 		(my $keyword = $key) =~ s/[^a-z0-9]/-/gi;
-		$keyword = lc("$TYPE2GROUP{$ref->{dmitype}}-$keyword");
+		$keyword = lc("$TYPE2GROUP{$stor->{dmitype}}-$keyword");
 		return $keyword;
 	}
 
-	$ref->{data} = \%strct;
 	#if ($^W && @errors) {
-	if (@errors && !$ref->{nowarnings}) {
+	if (@errors && !$stor->{nowarnings}) {
 		carp $_ for @errors;
 	}
+
+	return (\%data,\%keywords);
 }
 
 
@@ -205,8 +269,8 @@ sub DUMP {
 	return unless $DEBUG;
 	eval {
 		require Data::Dumper;
-		$Data::Dumper::Indent = 2;
-		$Data::Dumper::Terse = 1;
+		local $Data::Dumper::Indent = 2;
+		local $Data::Dumper::Terse = 1;
 		carp(shift().': '.Data::Dumper::Dumper(shift()));
 	}
 }
@@ -219,9 +283,31 @@ sub DUMP {
 
 =head1 NAME
 
-Parse::DMIDecode::Handle - 
+Parse::DMIDecode::Handle - SMBIOS Structure Handle Object Class
 
 =head1 SYNOPSIS
+
+ use Parse::DMIDecode qw();
+ my $decoder = new Parse::DMIDecode;
+ $decoder->probe;
+ 
+ for my $handle ($decoder->get_handles) {
+     printf("Handle %s of type %s is %s bytes long (minus strings).\n".
+            "  > Contians the following keyword data entries:\n",
+             $handle->handle,
+             $handle->dmitype,
+             $handle->bytes
+         );
+ 
+     for my $keyword ($handle->keywords) {
+         my $value = $handle->keyword($keyword);
+         printf("Keyword \"%s\" => \"%s\"\n",
+                 $keyword,
+                 (ref($value) eq 'ARRAY' ?
+                     join(', ',@{$value}) : ($value||''))
+             );
+     }
+ }
 
 =head1 DESCRIPTION
 
@@ -229,21 +315,68 @@ Parse::DMIDecode::Handle -
 
 =head2 new
 
+Create a new struture handle object. This is called by L<Parse::DMIDecode>'s
+I<parse()> (and indirectly by I<probe()>) methods.
+
 =head2 raw
+
+ my $raw_data = $handle->raw;
+
+Returns the raw data as generated by I<dmidecode> that was
+parsed to create this handle object.
 
 =head2 bytes
 
-=head2 handle
+ my $bytes = $handle->bytes;
 
 =head2 address
 
-=head2 type
+ my $address = $handle->address;
+
+Returns the address handle of the structure.
+
+=head2 handle
+
+Alias for address.
 
 =head2 dmitype
 
+ my $dmitype = $handle->dmitype;
+
+=head2 type
+
+Alias for dmitype.
+
+=head2 description
+
+ my $description = $handle->description;
+
 =head2 keywords
 
+ my @keywords = $handle->keywords;
+
+Returns a list of keyword data pairs available for retreival from
+this handle object.
+
 =head2 keyword
+
+ for my $keyword ($handle->keywords) {
+     printf("Keyword \"%s\" => \"%s\"\n",
+             $keyword,
+             $handle->keyword($keyword)
+         );
+ }
+
+=head2 parsed_structures
+
+ use Data::Dumper;
+ my $ref = $handle->parsed_structures;
+ print Dumper($ref);
+
+Returns a copy of the parsed structures. This should be used with care
+as this is a cloned copy of the parsed data structures that the
+I<Parse::DMIDecode::Handle> object uses internally, and as such may
+change format in later releases without notice.
 
 =head1 SEE ALSO
 
@@ -251,7 +384,7 @@ L<Parse::DMIDecode>
 
 =head1 VERSION
 
-$Id: Handle.pm 789 2006-10-19 08:04:35Z nicolaw $
+$Id: Handle.pm 807 2006-10-22 12:15:10Z nicolaw $
 
 =head1 AUTHOR
 

@@ -27,7 +27,10 @@ DESCRIPTION
 
 METHODS
   new
-     my $decoder = Parse::DMIDecode->new(dmidecode => "/usr/sbin/dmidecode");
+     my $decoder = Parse::DMIDecode->new(
+                         dmidecode => "/usr/sbin/dmidecode"),
+                         nowarnings => 1
+                     );
 
   probe
      $decoder->probe;
@@ -56,7 +59,9 @@ METHODS
   get_handles
      use Parse::DMIDecode::Constants qw(@TYPES);
      
- for my $handle ($decoder->get_handles( group => "memory" )) {
+ # Available groups to query: bios, system, baseboard,
+     #    chassis, processor, memory, cache, connector, slot
+     for my $handle ($decoder->get_handles( group => "memory" )) {
          printf(">> Found handle at %s (%s):\n%s\n",
                  $handle->address,
                  $TYPES[$handle->dmitype],
@@ -69,6 +74,10 @@ METHODS
 
   dmidecode_version
      my $dmidecode_version = $decoder->dmidecode_version;
+
+    Returns the version number of the copy of *dmidecode* that was used to
+    create the source data that was parsed. This value may not be available
+    when using older versions of *dmidecode*.
 
   table_location
      my $memory_address = $decoder->table_location;
@@ -84,7 +93,7 @@ SEE ALSO
     vpddecode(8)
 
 VERSION
-    $Id: DMIDecode.pm 789 2006-10-19 08:04:35Z nicolaw $
+    $Id: DMIDecode.pm 803 2006-10-22 11:36:22Z nicolaw $
 
 AUTHOR
     Nicola Worthington <nicolaw@cpan.org>

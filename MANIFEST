@@ -1,6 +1,8 @@
 Build.PL
 Changes
+examples/probe_machines.pl
 examples/synopsys.pl
+examples/synopsys2.pl
 examples/test.pl
 INSTALL
 lib/Parse/DMIDecode.pm
