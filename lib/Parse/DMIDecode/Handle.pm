@@ -1,6 +1,6 @@
 ############################################################
 #
-#   $Id: Handle.pm 807 2006-10-22 12:15:10Z nicolaw $
+#   $Id: Handle.pm 976 2007-03-04 20:47:36Z nicolaw $
 #   Parse::DMIDecode::Handle - SMBIOS Structure Handle Object Class
 #
 #   Copyright 2006 Nicola Worthington
@@ -24,12 +24,12 @@ package Parse::DMIDecode::Handle;
 
 use strict;
 use Parse::DMIDecode::Constants qw(@TYPES %GROUPS %TYPE2GROUP);
-use Scalar::Util qw(refaddr);
+#use Scalar::Util qw(refaddr);
 #use Storable qw(dclone);
 use Carp qw(croak cluck confess carp);
 use vars qw($VERSION $DEBUG);
 
-$VERSION = '0.02' || sprintf('%d', q$Revision: 807 $ =~ /(\d+)/g);
+$VERSION = '0.03' || sprintf('%d', q$Revision: 976 $ =~ /(\d+)/g);
 $DEBUG ||= $ENV{DEBUG} ? 1 : 0;
 
 my $objstore = {};
@@ -75,8 +75,8 @@ sub new {
 		my $self = bless \(my $dummy), $class;
 		push @objects, $self;
 
-		$objstore->{refaddr($self)} = _deepcopy($stor);
-		my $stor = $objstore->{refaddr($self)};
+		$objstore->{_refaddr($self)} = _deepcopy($stor);
+		my $stor = $objstore->{_refaddr($self)};
 
 		$stor->{description} = substr($name,4);
 		$stor->{data} = $data->{$name} || {};
@@ -88,6 +88,33 @@ sub new {
 
 	DUMP('\@objects',\@objects);
 	return @objects;
+}
+
+
+no warnings 'redefine';
+sub UNIVERSAL::a_sub_not_likely_to_be_here { ref($_[0]) }
+use warnings 'redefine';
+
+
+sub _blessed ($) {
+	local($@, $SIG{__DIE__}, $SIG{__WARN__});
+	return length(ref($_[0]))
+			? eval { $_[0]->a_sub_not_likely_to_be_here }
+			: undef
+}
+
+
+sub _refaddr($) {
+	my $pkg = ref($_[0]) or return undef;
+	if (_blessed($_[0])) {
+		bless $_[0], 'Scalar::Util::Fake';
+	} else {
+		$pkg = undef;
+	}
+	"$_[0]" =~ /0x(\w+)/;
+	my $i = do { local $^W; hex $1 };
+	bless $_[0], $pkg if defined $pkg;
+	return $i;
 }
 
 
@@ -109,7 +136,7 @@ sub parsed_structures {
 	my $self = shift;
 	croak 'Not called as a method by parent object'
 		unless ref $self && UNIVERSAL::isa($self, __PACKAGE__);
-	return _deepcopy($objstore->{refaddr($self)}->{data});
+	return _deepcopy($objstore->{_refaddr($self)}->{data});
 }
 
 
@@ -119,7 +146,7 @@ sub keyword {
 		unless ref $self && UNIVERSAL::isa($self, __PACKAGE__);
 	croak sprintf('%s elements passed when one was expected',
 		(@_ > 1 ? 'Multiple' : 'No')) if @_ != 1;
-	return $objstore->{refaddr($self)}->{keywords}->{$_[0]};
+	return $objstore->{_refaddr($self)}->{keywords}->{$_[0]};
 }
 
 
@@ -127,7 +154,7 @@ sub keywords {
 	my $self = shift;
 	croak 'Not called as a method by parent object'
 		unless ref $self && UNIVERSAL::isa($self, __PACKAGE__);
-	return sort(keys(%{$objstore->{refaddr($self)}->{keywords}}));
+	return sort(keys(%{$objstore->{_refaddr($self)}->{keywords}}));
 }
 
 
@@ -135,7 +162,7 @@ sub raw {
 	my $self = shift;
 	croak 'Not called as a method by parent object'
 		unless ref $self && UNIVERSAL::isa($self, __PACKAGE__);
-	return $objstore->{refaddr($self)}->{raw};
+	return $objstore->{_refaddr($self)}->{raw};
 }
 
 
@@ -143,7 +170,7 @@ sub description {
 	my $self = shift;
 	croak 'Not called as a method by parent object'
 		unless ref $self && UNIVERSAL::isa($self, __PACKAGE__);
-	return $objstore->{refaddr($self)}->{description};
+	return $objstore->{_refaddr($self)}->{description};
 }
 
 
@@ -151,7 +178,7 @@ sub bytes {
 	my $self = shift;
 	croak 'Not called as a method by parent object'
 		unless ref $self && UNIVERSAL::isa($self, __PACKAGE__);
-	return $objstore->{refaddr($self)}->{bytes};
+	return $objstore->{_refaddr($self)}->{bytes};
 }
 
 
@@ -160,7 +187,7 @@ sub dmitype {
 	my $self = shift;
 	croak 'Not called as a method by parent object'
 		unless ref $self && UNIVERSAL::isa($self, __PACKAGE__);
-	return $objstore->{refaddr($self)}->{dmitype};
+	return $objstore->{_refaddr($self)}->{dmitype};
 }
 
 
@@ -169,7 +196,7 @@ sub handle {
 	my $self = shift;
 	croak 'Not called as a method by parent object'
 		unless ref $self && UNIVERSAL::isa($self, __PACKAGE__);
-	return $objstore->{refaddr($self)}->{handle};
+	return $objstore->{_refaddr($self)}->{handle};
 }
 
 
@@ -384,7 +411,7 @@ L<Parse::DMIDecode>
 
 =head1 VERSION
 
-$Id: Handle.pm 807 2006-10-22 12:15:10Z nicolaw $
+$Id: Handle.pm 976 2007-03-04 20:47:36Z nicolaw $
 
 =head1 AUTHOR
 

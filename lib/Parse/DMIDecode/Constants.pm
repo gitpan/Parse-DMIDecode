@@ -1,6 +1,6 @@
 ############################################################
 #
-#   $Id: Constants.pm 795 2006-10-20 15:39:17Z nicolaw $
+#   $Id: Constants.pm 976 2007-03-04 20:47:36Z nicolaw $
 #   Parse::DMIDecode::Constants - SMBIOS Constants
 #
 #   Copyright 2006 Nicola Worthington
@@ -33,7 +33,7 @@ use vars qw($VERSION $DEBUG
 @EXPORT_OK = qw(@TYPES %GROUPS %TYPE2GROUP);
 %EXPORT_TAGS = (all => \@EXPORT_OK);
 
-$VERSION = '0.02' || sprintf('%d', q$Revision: 795 $ =~ /(\d+)/g);
+$VERSION = '0.03' || sprintf('%d', q$Revision: 976 $ =~ /(\d+)/g);
 $DEBUG ||= $ENV{DEBUG} ? 1 : 0;
 
 @TYPES = ( # Description                    Index Group(s)
@@ -130,7 +130,7 @@ L<Parse::DMIDecode>
 
 =head1 VERSION
 
-$Id: Constants.pm 795 2006-10-20 15:39:17Z nicolaw $
+$Id: Constants.pm 976 2007-03-04 20:47:36Z nicolaw $
 
 =head1 AUTHOR
 

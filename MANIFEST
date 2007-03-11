@@ -1,12 +1,16 @@
 Build.PL
 Changes
+complain.txt
+examples/physical_cpus.pl
 examples/probe_machines.pl
+examples/services.pl
 examples/synopsys.pl
 examples/synopsys2.pl
 examples/test.pl
 INSTALL
 lib/Parse/DMIDecode.pm
 lib/Parse/DMIDecode/Constants.pm
+lib/Parse/DMIDecode/Examples.pod
 lib/Parse/DMIDecode/Handle.pm
 LICENSE
 Makefile.PL

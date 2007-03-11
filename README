@@ -1,5 +1,5 @@
 NAME
-    Parse::DMIDecode - Interface to SMBIOS under Linux using dmidecode
+    Parse::DMIDecode - Interface to SMBIOS using dmidecode
 
 SYNOPSIS
      use strict;
@@ -21,23 +21,35 @@ DESCRIPTION
     *dmidecode* command which is known to work under a number of Linux, BSD
     and BeOS variants.
 
-    This module is still actively under development, is no not yet feature
-    complete and still needs to be fully documented. There is a possibility
-    accessor method names may change before the final release.
-
 METHODS
   new
      my $decoder = Parse::DMIDecode->new(
-                         dmidecode => "/usr/sbin/dmidecode"),
-                         nowarnings => 1
+                         dmidecode => "/usr/sbin/dmidecode",
+                         nowarnings => 1,
                      );
+
+    This is the constructor method to create a Parse::DMIDeocde object. It
+    accepts two optional arguments; "dmidecode" and "nowarnings".
+
+    The "dmidecode" argument specifies the full path and filename of the
+    *dmodecode* command that should used by the "probe" method.
+
+    The "nowarnings" argument instructs Parse::DMIDecode not to emit any
+    parser warnings.
 
   probe
      $decoder->probe;
 
+    This method executes an active probe to gather information using the
+    *dmidecode* command. It does not accept any arguments.
+
   parse
      my $raw = qx(sudo /usr/sbin/dmidecode);
      $decoder->prase($raw);
+
+    This method is a passive alternative to the "probe" method. It accepts a
+    single string argument which should contain output from the *dmidecode*
+    command, which it will parse.
 
   keyword
      my $serial_number = $decoder->keyword("system-serial-number");
@@ -69,8 +81,13 @@ METHODS
              );
      }
 
+    See Parse::DMIDecode::Handle for accessor method documentation for
+    handle objects.
+
   smbios_version
      my $smbios_version = $decoder->smbios_version;
+
+    Returns the SMBIOS version number.
 
   dmidecode_version
      my $dmidecode_version = $decoder->dmidecode_version;
@@ -86,14 +103,16 @@ METHODS
      my $total_structures = $decoder->structures;
 
 SEE ALSO
-    examples/*.pl, <http://www.nongnu.org/dmidecode/>,
-    <http://linux.dell.com/libsmbios/>,
+    Parse::DMIDecode::Handle, Parse::DMIDecode::Constants,
+    Parse::DMIDecode::Examples, examples/*.pl,
+    <http://search.cpan.org/src/NICOLAW/Parse-DMIDecode-0.03/examples/>,
+    <http://www.nongnu.org/dmidecode/>, <http://linux.dell.com/libsmbios/>,
     <http://sourceforge.net/projects/x86info/>,
     <http://www.dmtf.org/standards/smbios>, biosdecode(8), dmidecode(8),
     vpddecode(8)
 
 VERSION
-    $Id: DMIDecode.pm 803 2006-10-22 11:36:22Z nicolaw $
+    $Id: DMIDecode.pm 1004 2007-03-11 12:43:25Z nicolaw $
 
 AUTHOR
     Nicola Worthington <nicolaw@cpan.org>
@@ -105,7 +124,7 @@ AUTHOR
     http://www.amazon.co.uk/gp/registry/1VZXC59ESWYK0?sort=priority )
 
 COPYRIGHT
-    Copyright 2006 Nicola Worthington.
+    Copyright 2006,2007 Nicola Worthington.
 
     This software is licensed under The Apache Software License, Version
     2.0.

@@ -1,9 +1,9 @@
 ############################################################
 #
-#   $Id: DMIDecode.pm 803 2006-10-22 11:36:22Z nicolaw $
-#   Parse::DMIDecode - Interface to SMBIOS under Linux using dmidecode
+#   $Id: DMIDecode.pm 1004 2007-03-11 12:43:25Z nicolaw $
+#   Parse::DMIDecode - Interface to SMBIOS using dmidecode
 #
-#   Copyright 2006 Nicola Worthington
+#   Copyright 2006,2007 Nicola Worthington
 #
 #   Licensed under the Apache License, Version 2.0 (the "License");
 #   you may not use this file except in compliance with the License.
@@ -23,13 +23,13 @@ package Parse::DMIDecode;
 # vim:ts=4:sw=4:tw=78
 
 use strict;
-use Scalar::Util qw(refaddr);
+#use Scalar::Util qw(refaddr);
 use Parse::DMIDecode::Handle;
 use Parse::DMIDecode::Constants qw(@TYPES %GROUPS);
 use Carp qw(croak cluck carp);
 use vars qw($VERSION $DEBUG);
 
-$VERSION = '0.02' || sprintf('%d', q$Revision: 803 $ =~ /(\d+)/g);
+$VERSION = '0.03' || sprintf('%d', q$Revision: 1004 $ =~ /(\d+)/g);
 $DEBUG ||= $ENV{DEBUG} ? 1 : 0;
 
 my $objstore = {};
@@ -44,8 +44,8 @@ sub new {
 	croak 'Odd number of elements passed when even was expected' if @_ % 2;
 
 	my $self = bless \(my $dummy), $class;
-	$objstore->{refaddr($self)} = {@_};
-	my $stor = $objstore->{refaddr($self)};
+	$objstore->{_refaddr($self)} = {@_};
+	my $stor = $objstore->{_refaddr($self)};
 
 	$stor->{commands} = [qw(dmidecode)];
 	my $validkeys = join('|','nowarnings',@{$stor->{commands}});
@@ -70,7 +70,7 @@ sub probe {
 	croak 'Not called as a method by parent object'
 		unless ref $self && UNIVERSAL::isa($self, __PACKAGE__);
 
-	my $stor = $objstore->{refaddr($self)};
+	my $stor = $objstore->{_refaddr($self)};
 	eval {
 		if (!defined $stor->{dmidecode}) {
 			require File::Which;
@@ -104,7 +104,7 @@ sub parse {
 	croak 'Not called as a method by parent object'
 		unless ref $self && UNIVERSAL::isa($self, __PACKAGE__);
 
-	my $stor = $objstore->{refaddr($self)};
+	my $stor = $objstore->{_refaddr($self)};
 	my %data = (handles => []);
 
 	my @lines;
@@ -173,7 +173,7 @@ sub get_handles {
 
 	croak 'Odd number of elements passed when even was expected' if @_ % 2;
 	my %param = @_;
-	my $stor = $objstore->{refaddr($self)};
+	my $stor = $objstore->{_refaddr($self)};
 	my @handles;
 	my $getall = !keys(%param);
 
@@ -196,7 +196,7 @@ sub structures {
 	my $self = shift;
 	croak 'Not called as a method by parent object'
 		unless ref $self && UNIVERSAL::isa($self, __PACKAGE__);
-	return $objstore->{refaddr($self)}->{parsed}->{structures};
+	return $objstore->{_refaddr($self)}->{parsed}->{structures};
 }
 
 
@@ -204,7 +204,7 @@ sub table_location {
 	my $self = shift;
 	croak 'Not called as a method by parent object'
 		unless ref $self && UNIVERSAL::isa($self, __PACKAGE__);
-	return $objstore->{refaddr($self)}->{parsed}->{location};
+	return $objstore->{_refaddr($self)}->{parsed}->{location};
 }
 
 
@@ -212,7 +212,7 @@ sub smbios_version {
 	my $self = shift;
 	croak 'Not called as a method by parent object'
 		unless ref $self && UNIVERSAL::isa($self, __PACKAGE__);
-	return $objstore->{refaddr($self)}->{parsed}->{smbios};
+	return $objstore->{_refaddr($self)}->{parsed}->{smbios};
 }
 
 
@@ -220,7 +220,7 @@ sub dmidecode_version {
 	my $self = shift;
 	croak 'Not called as a method by parent object'
 		unless ref $self && UNIVERSAL::isa($self, __PACKAGE__);
-	return $objstore->{refaddr($self)}->{parsed}->{dmidecode};
+	return $objstore->{_refaddr($self)}->{parsed}->{dmidecode};
 }
 
 
@@ -229,7 +229,7 @@ sub handle_addresses {
 	croak 'Not called as a method by parent object'
 		unless ref $self && UNIVERSAL::isa($self, __PACKAGE__);
 	return map { $_->handle }
-		@{$objstore->{refaddr($self)}->{parsed}->{handles}};
+		@{$objstore->{_refaddr($self)}->{parsed}->{handles}};
 }
 
 
@@ -239,7 +239,7 @@ sub keywords {
 		unless ref $self && UNIVERSAL::isa($self, __PACKAGE__);
 
 	my %keywords;
-	my $stor = $objstore->{refaddr($self)};
+	my $stor = $objstore->{_refaddr($self)};
 	for my $handle (@{$stor->{parsed}->{handles}}) {
 		for my $keyword ($handle->keywords) {
 			$keywords{$keyword} = 1;
@@ -257,7 +257,7 @@ sub keyword {
 	croak sprintf('%s elements passed when one was expected',
 		(@_ > 1 ? 'Multiple' : 'No')) if @_ != 1;
 
-	my $stor = $objstore->{refaddr($self)};
+	my $stor = $objstore->{_refaddr($self)};
 	for my $handle (@{$stor->{parsed}->{handles}}) {
 		if (grep($_ eq $_[0],$handle->keywords)) {
 			return $handle->keyword($_[0]);
@@ -266,9 +266,36 @@ sub keyword {
 }
 
 
+no warnings 'redefine';
+sub UNIVERSAL::a_sub_not_likely_to_be_here { ref($_[0]) }
+use warnings 'redefine';
+
+
+sub _blessed ($) {
+	local($@, $SIG{__DIE__}, $SIG{__WARN__});
+	return length(ref($_[0]))
+			? eval { $_[0]->a_sub_not_likely_to_be_here }
+			: undef
+}
+
+
+sub _refaddr($) {
+	my $pkg = ref($_[0]) or return undef;
+	if (_blessed($_[0])) {
+		bless $_[0], 'Scalar::Util::Fake';
+	} else {
+		$pkg = undef;
+	}
+	"$_[0]" =~ /0x(\w+)/;
+	my $i = do { local $^W; hex $1 };
+	bless $_[0], $pkg if defined $pkg;
+	return $i;
+}
+
+
 sub DESTROY {
 	my $self = shift;
-	delete $objstore->{refaddr($self)};
+	delete $objstore->{_refaddr($self)};
 }
 
 
@@ -296,7 +323,7 @@ sub DUMP {
 
 =head1 NAME
 
-Parse::DMIDecode - Interface to SMBIOS under Linux using dmidecode
+Parse::DMIDecode - Interface to SMBIOS using dmidecode
 
 =head1 SYNOPSIS
 
@@ -320,28 +347,41 @@ This module provides an OO interface to SMBIOS information through
 the I<dmidecode> command which is known to work under a number of
 Linux, BSD and BeOS variants.
 
-This module is still actively under development, is no not yet
-feature complete and still needs to be fully documented. There is
-a possibility accessor method names may change before the final
-release.
-
 =head1 METHODS
 
 =head2 new
 
  my $decoder = Parse::DMIDecode->new(
-                     dmidecode => "/usr/sbin/dmidecode"),
-                     nowarnings => 1
+                     dmidecode => "/usr/sbin/dmidecode",
+                     nowarnings => 1,
                  );
+
+This is the constructor method to create a Parse::DMIDeocde
+object. It accepts two optional arguments; C<dmidecode> and
+C<nowarnings>.
+
+The C<dmidecode> argument specifies the full path and filename
+of the I<dmodecode> command that should used by the C<probe>
+method.
+
+The C<nowarnings> argument instructs Parse::DMIDecode not to
+emit any parser warnings.
 
 =head2 probe
 
  $decoder->probe;
 
+This method executes an active probe to gather information using the
+I<dmidecode> command. It does not accept any arguments.
+
 =head2 parse
 
  my $raw = qx(sudo /usr/sbin/dmidecode);
  $decoder->prase($raw);
+
+This method is a passive alternative to the C<probe> method. It
+accepts a single string argument which should contain output from
+the I<dmidecode> command, which it will parse.
 
 =head2 keyword
 
@@ -377,9 +417,14 @@ release.
          );
  }
 
+See L<Parse::DMIDecode::Handle> for accessor method documentation
+for handle objects.
+
 =head2 smbios_version
 
  my $smbios_version = $decoder->smbios_version;
+
+Returns the SMBIOS version number.
 
 =head2 dmidecode_version
 
@@ -399,7 +444,11 @@ when using older versions of I<dmidecode>.
 
 =head1 SEE ALSO
 
+L<Parse::DMIDecode::Handle>,
+L<Parse::DMIDecode::Constants>,
+L<Parse::DMIDecode::Examples>,
 examples/*.pl,
+L<http://search.cpan.org/src/NICOLAW/Parse-DMIDecode-0.03/examples/>,
 L<http://www.nongnu.org/dmidecode/>,
 L<http://linux.dell.com/libsmbios/>,
 L<http://sourceforge.net/projects/x86info/>,
@@ -408,7 +457,7 @@ L<biosdecode(8)>, L<dmidecode(8)>, L<vpddecode(8)>
 
 =head1 VERSION
 
-$Id: DMIDecode.pm 803 2006-10-22 11:36:22Z nicolaw $
+$Id: DMIDecode.pm 1004 2007-03-11 12:43:25Z nicolaw $
 
 =head1 AUTHOR
 
@@ -423,7 +472,7 @@ L<Amazon wishlist|http://www.amazon.co.uk/gp/registry/1VZXC59ESWYK0?sort=priorit
 
 =head1 COPYRIGHT
 
-Copyright 2006 Nicola Worthington.
+Copyright 2006,2007 Nicola Worthington.
 
 This software is licensed under The Apache Software License, Version 2.0.
 

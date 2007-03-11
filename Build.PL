@@ -1,12 +1,13 @@
 # vim:ts=4:sw=4:tw=78
-# $Id: Build.PL 807 2006-10-22 12:15:10Z nicolaw $
+# $Id: Build.PL 976 2007-03-04 20:47:36Z nicolaw $
 
 use strict;
 use Module::Build;
 use vars qw($build);
 
+my $module = 'Parse::DMIDecode';
 $build = Module::Build->new(
-		module_name        => 'Parse::DMIDecode',
+		module_name        => $module,
 		license            => 'open_source',
 		create_makefile_pl => 'passthrough',
 		create_readme      => 1,
@@ -15,7 +16,7 @@ $build = Module::Build->new(
 
 		requires => {
 			'Carp'         => 0, # 1.04
-			'Scalar::Util' => 0,
+			#'Scalar::Util' => 0,
 			#'Storable'     => 0,
 		},
 
@@ -46,7 +47,7 @@ if ($url) {
 		local $SIG{ALRM} = sub { die; };
 		alarm 10;
 		my $ua = LWP::UserAgent->new(
-				agent => 'Build.PL $Revision: 807 $',
+				agent => 'Build.PL $Revision: 976 $',
 				timeout => 9,
 				max_size => 500,
 			);
@@ -72,7 +73,7 @@ sub may_send_version_information {
 
 	my $str = sprintf('%s?%s=%s&%s=%s&%s=%s&%s=%s&%s=%s&%s=%s',
 			'http://perlgirl.org.uk/lib/usage.cgi',
-			'name',     $build->dist_name(),
+			'name',     $module,
 			'version',  $build->dist_version(),
 			'osname',   $Config::Config{osname},
 			'archname', $Config::Config{archname},
@@ -94,7 +95,7 @@ sub may_send_version_information {
 		alarm 0;
 	};
 
-	return $send ? $str : undef;
+	return defined $send && !ref($send) && "$send" eq "1" ? $str : undef;
 }
 
 1;
